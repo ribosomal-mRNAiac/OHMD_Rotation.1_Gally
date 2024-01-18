@@ -1,0 +1,153 @@
+---
+title: "Exploring EcoR"
+author: "Daniel Power"
+date: "2024-01-09"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+rm(list=ls())
+
+library(tidyverse)
+print(paste('tidyverse_version:', packageVersion('tidyverse')))
+```
+
+
+```{r cars}
+df_cgMLST <- read.csv('/home/daniel/Downloads/EcoRPlus.tsv', sep = '\t', header = TRUE)
+
+zbe <- df %>% count(ST) 
+
+df_Assembly.stats <- read.csv('/home/daniel/Downloads/EcoRPlus_Assembly.stats.tsv', sep = '\t', header = TRUE)
+
+cols_AS <- colnames(df_Assembly.stats)
+cols_cgMLST <- colnames(df_cgMLST)
+
+cols_cp <- intersect(cols_AS, cols_cgMLST)
+cols_cp <- cols_cp[cols_cp != "Sample.ID"]
+
+df_cgMLST.edit <- df_cgMLST[, -which(names(df_cgMLST) %in% cols_cp)]
+
+names(df_cgMLST.edit)[names(df_cgMLST.edit) == "Sample.ID"] <- "Sample.ID_cgMLST"
+
+zbe <- cbind(df_Assembly.stats, df_cgMLST.edit)
+
+zbe[c("Sample.ID", "Sample.ID_cgMLST")]
+
+write.csv(zbe, '/home/daniel/Downloads/EcoRPlus_conjoined_Assembly.stats_cgMLST.tsv', sep = '\t')
+```
+```{r}
+df_cgMLST <- read.csv('/home/daniel/Downloads/E.coli_cgMLST.tsv', sep = '\t', header = TRUE)
+
+df_assemblies <- read.csv('/home/daniel/Downloads/E.coli_genomes/OmpA_results.tsv', sep = '\t', header = FALSE)
+
+metadata_strains <- as.vector(df_cgMLST[,"Barcode"])
+zbe <- df_assemblies[,2]
+
+assembled_strains <- as.vector(gsub("\\_AS.*","",zbe))
+
+
+intersect(metadata_strains, assembled_strains)
+```
+
+
+```{r}
+O157_cgMLST <- read.csv('/home/daniel/OHMD/Year_1/Rotation_1_Gally/O157_cgMLST.tsv', sep = '\t', header = TRUE)
+O157_AS <- read.csv('/home/daniel/OHMD/Year_1/Rotation_1_Gally/O157_Assembly.stats.tsv', sep = '\t', header = TRUE)
+O157_assemblies <- read.csv('/home/daniel/OHMD/Year_1/Rotation_1_Gally/OmpA_O157_results.tsv', sep = '\t', header = FALSE)
+
+# O157_cgMLST %>% count(ST) # some 'replicated' ST types
+# O157_cgMLST %>% count(Barcode) # all barcodes are unique
+# O157_cgMLST %>% count(Uberstrain) 
+# 
+# O157_AS %>% count(Assembly.barcode)
+```
+```{r}
+cols_AS <- colnames(O157_AS)
+cols_cgMLST <- colnames(O157_cgMLST)
+
+cols_cp <- intersect(cols_AS, cols_cgMLST)
+cols_cp <- cols_cp[cols_cp != "Sample.ID"]
+
+O157_cgMLST.edit <- O157_cgMLST[, -which(names(O157_cgMLST) %in% cols_cp)]
+
+names(O157_cgMLST.edit)[names(O157_cgMLST.edit) == "Sample.ID"] <- "Sample.ID_cgMLST"
+
+O157_cgMLST.AS <- cbind(O157_AS, O157_cgMLST.edit)
+```
+
+```{r Check barcodes lineup with assembly names}
+metadata_strains <- as.vector(O157_cgMLST.AS[,"Assembly.barcode"])
+metadata_strains <- as.vector(gsub("\\_AS","", metadata_strains))
+
+assembly_strains <- O157_assemblies[,2]
+assembled_strains <- as.vector(gsub("\\_AS.*","", assembly_strains
+                                    ))
+assembled_strains <- gsub("O157_Genomes/", "", assembled_strains)
+
+#common_strains <- intersect(metadata_strains, assembled_strains)
+
+#assembled_strains[!which(common_strains %in% assembled_strains)]
+
+setdiff(assembled_strains, metadata_strains)
+
+length(metadata_strains)
+# no clue why different lengths??
+```
+
+```{r edit df values}
+df_assemblies <- O157_assemblies[c("V2","V13")]
+df_assemblies$V2 <- gsub("_AS.*","", df_assemblies$V2)
+df_assemblies$V2 <- gsub('O157_Genomes/','', df_assemblies$V2)
+```
+
+```{r lets align}
+library(msa)
+library(ape)
+library(seqinr)
+library(EnvNJ)
+
+# toString(translate(s2c('ATACTCA')))
+# trans(s2c('ATACTCA')) # not good
+# toString()
+# 
+# df_assemblies$protein <- s2c(df_assemblies$V13[])
+# 
+# zbe <- toString(translate(s2c(df_assemblies$V13[1])))
+# gsub(", ", "", zbe)
+# 
+# df_assemblies$protein <- 0
+# for (i in 1:nrow(df_assemblies)) {
+#   print(i)
+# }
+# 
+# zbe <- ""
+for (i in 1:nrow(df_assemblies)) {
+#for (i in 1:20) {
+  #zbe <- paste(zbe, '>', df_assemblies$V2[i], '\n', df_assemblies$V13[i], '\n')
+  write.fasta(sequences = as.vector(translate(s2c(df_assemblies$V13[i]))), 
+              names = df_assemblies$V2[i], 
+              file.out = paste0( '/home/daniel/OHMD/Year_1/Rotation_1_Gally/translated_FASTAs/', df_assemblies$V2[i], '_translated.fasta')
+              )
+  #print(df_assemblies$V2[i])
+  #print(df_assemblies$V13[i])
+}
+
+# write.fasta(zbe, file.out = 'zbe.fasta')
+# 
+# write.fasta(sequences = as.vector(s2c(df_assemblies$V13[1])), names = df_assemblies$V2[1], file.out = paste0(df_assemblies$V2[1], '_translated.fasta'))
+# paste0(df_assemblies$V2[1], '_translated.fasta')
+
+fastaconc(otus = as.vector(paste0(df_assemblies$V2, '_translated')), 
+          inputdir = '/home/daniel/OHMD/Year_1/Rotation_1_Gally/translated_FASTAs', 
+          out.file = '/home/daniel/OHMD/Year_1/Rotation_1_Gally/zbe.fasta'
+          )
+
+# <- system.file('/home/daniel/OHMD/Year_1/Rotation_1_Gally/zbe.fasta', package="msa")
+#mySequences <- readAAStringSet('/home/daniel/OHMD/Year_1/Rotation_1_Gally/zbe.fasta')
+
+#myFirstAlignment <- msa(mySequences)
+
+```
+
