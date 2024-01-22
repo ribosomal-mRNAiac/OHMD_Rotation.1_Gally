@@ -15,9 +15,9 @@ print(paste('tidyverse_version:', packageVersion('tidyverse')))
 
 
 ```{r cars}
-df_cgMLST <- read.csv('/home/daniel/Downloads/EcoRPlus.tsv', sep = '\t', header = TRUE)
+df_cgMLST <- read.csv('/home/daniel/Downloads/EcoRPlus_cgMLST.tsv', sep = '\t', header = TRUE)
 
-zbe <- df %>% count(ST) 
+#zbe <- df %>% count(ST) 
 
 df_Assembly.stats <- read.csv('/home/daniel/Downloads/EcoRPlus_Assembly.stats.tsv', sep = '\t', header = TRUE)
 
@@ -100,6 +100,24 @@ length(metadata_strains)
 df_assemblies <- O157_assemblies[c("V2","V13")]
 df_assemblies$V2 <- gsub("_AS.*","", df_assemblies$V2)
 df_assemblies$V2 <- gsub('O157_Genomes/','', df_assemblies$V2)
+
+df_assemblies %>% count(V2)
+
+df_assemblies$protein <- 0
+
+for (i in 1:nrow(df_assemblies)){
+  df_assemblies$protein[i] <- (c2s(translate(s2c(df_assemblies$V13[i]))))
+}
+
+unique(df_assemblies$protein) # 75 alleles, identical to nucleotide alleles
+# as.vector()
+# class(df_assemblies$protein)
+# 
+# df_assemblies$V13 <- s2c(toString(df_assemblies$V13))
+# df_assemblies$protein <- c2s(translate(s2c(df_assemblies$V13)))
+# translate(s2c('ATCG'))
+# 
+# data.frame(lapply(df_assemblies$protein, function(x) sapply(x, translate(s2c(as.character)))))
 ```
 
 ```{r lets align}
@@ -123,8 +141,8 @@ library(EnvNJ)
 # }
 # 
 # zbe <- ""
-for (i in 1:nrow(df_assemblies)) {
-#for (i in 1:20) {
+#for (i in 1:nrow(df_assemblies)) {
+for (i in 1:100) {
   #zbe <- paste(zbe, '>', df_assemblies$V2[i], '\n', df_assemblies$V13[i], '\n')
   write.fasta(sequences = as.vector(translate(s2c(df_assemblies$V13[i]))), 
               names = df_assemblies$V2[i], 
@@ -140,8 +158,9 @@ for (i in 1:nrow(df_assemblies)) {
 # paste0(df_assemblies$V2[1], '_translated.fasta')
 
 fastaconc(otus = as.vector(paste0(df_assemblies$V2, '_translated')), 
-          inputdir = '/home/daniel/OHMD/Year_1/Rotation_1_Gally/translated_FASTAs', 
-          out.file = '/home/daniel/OHMD/Year_1/Rotation_1_Gally/zbe.fasta'
+          inputdir = '/home/daniel/OHMD/Year_1/Rotation_1_Gally/translated_FASTAs/', 
+          #inputdir = '~/OHMD/Year_1/Rotation_1_Gally/translated_FASTAs/',
+          out.file = '/home/daniel/OHMD/Year_1/Rotation_1_Gally/O157_proteins.REDUCED.fasta'
           )
 
 # <- system.file('/home/daniel/OHMD/Year_1/Rotation_1_Gally/zbe.fasta', package="msa")
