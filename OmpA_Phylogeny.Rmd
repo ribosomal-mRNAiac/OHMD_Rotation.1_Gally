@@ -1,0 +1,100 @@
+---
+title: "OmpA_Phylogeny"
+author: "Daniel Power"
+date: "2024-01-29"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+rm(list=ls())
+
+library(tidyverse)
+print(paste('tidyverse_version:', packageVersion('tidyverse')))
+```
+
+# Gally.Lab_Strains
+```{r}
+df_metadata <- read.csv('/home/daniel/OHMD/Year_1/Rotation_1_Gally/RawDATA/Gally.Lab_Strains_metadata.tsv', sep = '\t', header = TRUE)
+df_assemblies <- read.csv('/home/daniel/OHMD/Year_1/Rotation_1_Gally/RawDATA/Gally.Lab_blast.results.tsv', sep = '\t', header = FALSE)
+
+df_assemblies$V2 <- gsub("_AS.*","", df_assemblies$V2)
+df_metadata$Assembly.barcode <- gsub("_AS.*","", df_metadata$Assembly.barcode)
+
+df_assemblies$Name <- 0
+
+# for (j in 1:nrow(df_metadata)) {
+#     if (df_metadata$Assembly.barcode[j] == df_assemblies$V2[i]) {
+#       df_assemblies$Name[i] <- df_metadata$Name[j]
+#       }
+#     }
+
+for (j in 1:nrow(df_metadata)) {
+  print(df_metadata$Name[j])
+  #print(df_metadata$Assembly.barcode[j])
+  for (i in 1:nrow(df_assemblies)){
+    #print(i) 
+    if (df_metadata$Assembly.barcode[j] == df_assemblies$V2[i]) {
+      print(df_metadata$Assembly.barcode[j])
+      df_assemblies$Name[i] <- df_metadata$Name[j]
+      }
+    }
+  
+}
+
+df_assemblies$Name_Ass.Barcode <- paste0(df_assemblies$Name, '_', df_assemblies$V2)
+
+for (i in 1:nrow(df_assemblies)) {
+  write.fasta(sequences = as.vector(translate(s2c(df_assemblies$V13[i]))), 
+              names = df_assemblies$Name_Ass.Barcode[i], 
+              file.out = paste0( '/home/daniel/OHMD/Year_1/Rotation_1_Gally/translated_FASTAs/Gally_translated_FASTAs/', df_assemblies$Name_Ass.Barcode[i], '.fasta')
+              )}
+  
+fastaconc(otus = as.vector(paste0(df_assemblies$Name_Ass.Barcode)), 
+          inputdir = '/home/daniel/OHMD/Year_1/Rotation_1_Gally/translated_FASTAs/Gally_translated_FASTAs/', 
+          #inputdir = '~/OHMD/Year_1/Rotation_1_Gally/translated_FASTAs/',
+          out.file = '/home/daniel/OHMD/Year_1/Rotation_1_Gally/Gally.Lab_OmpA.proteins.fasta'
+          )
+```
+
+# O157_Strains
+```{r}
+df_assemblies <- read.csv('/home/daniel/OHMD/Year_1/Rotation_1_Gally/RawDATA/O157_blast.results.tsv', sep = '\t', header = FALSE)
+
+df_assemblies$V2 <- gsub("_AS.*","", df_assemblies$V2)
+
+########## < Metadata!!
+
+for (i in 1:nrow(df_assemblies)) {
+  write.fasta(sequences = as.vector(translate(s2c(df_assemblies$V13[i]))), 
+              names = df_assemblies$V2[i], 
+              file.out = paste0( '/home/daniel/OHMD/Year_1/Rotation_1_Gally/translated_FASTAs/O157_translated_FASTAs/', df_assemblies$V2[i], '_translated.fasta')
+              )}
+  
+fastaconc(otus = as.vector(paste0(df_assemblies$V2, '_translated')), 
+          inputdir = '/home/daniel/OHMD/Year_1/Rotation_1_Gally/translated_FASTAs/O157_translated_FASTAs/', 
+          #inputdir = '~/OHMD/Year_1/Rotation_1_Gally/translated_FASTAs/',
+          out.file = '/home/daniel/OHMD/Year_1/Rotation_1_Gally/O157_OmpA.proteins.fasta'
+          )
+```
+
+# EcoRPlus.Lab_Strains
+```{r}
+df_assemblies <- read.csv('/home/daniel/OHMD/Year_1/Rotation_1_Gally/RawDATA/EcoRPlus_blast.results.tsv', sep = '\t', header = FALSE)
+
+df_assemblies$V2 <- gsub("_AS.*","", df_assemblies$V2)
+
+########## < Metadata!!
+
+for (i in 1:nrow(df_assemblies)) {
+  write.fasta(sequences = as.vector(translate(s2c(df_assemblies$V13[i]))), 
+              names = df_assemblies$V2[i], 
+              file.out = paste0( '/home/daniel/OHMD/Year_1/Rotation_1_Gally/translated_FASTAs/EcoRPlus_translated_FASTAs/', df_assemblies$V2[i], '_translated.fasta')
+              )}
+  
+fastaconc(otus = as.vector(paste0(df_assemblies$V2, '_translated')), 
+          inputdir = '/home/daniel/OHMD/Year_1/Rotation_1_Gally/translated_FASTAs/EcoRPlus_translated_FASTAs/', 
+          #inputdir = '~/OHMD/Year_1/Rotation_1_Gally/translated_FASTAs/',
+          out.file = '/home/daniel/OHMD/Year_1/Rotation_1_Gally/EcoRPlus_OmpA.proteins.fasta'
+          )
+```
