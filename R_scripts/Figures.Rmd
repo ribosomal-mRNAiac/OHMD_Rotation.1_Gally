@@ -1,0 +1,156 @@
+---
+title: "Figures for Rotation 1"
+author: "Daniel Power"
+date: "2024-02-07"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+rm(list=ls())
+
+library(tidyverse)
+library(ggplot2)
+library(ggrepel)
+library(ggpubr)
+library(reshape2)
+```
+
+# Graph of phage remaining in lysate
+```{r}
+adsorptions_df <- read.csv('/home/daniel/OHMD/Year_1/Rotation_1_Gally/data/Phage.Adsorptions_24.11.24.csv', header = TRUE)
+
+df <- adsorptions_df[1:5]
+df$Mean <- df[, c('Count.1', 'Count.2', 'Count.3')] %>% rowMeans()
+df$Medians <-  df[, c('Count.1', 'Count.2', 'Count.3')] %>% apply(1, median)
+
+df_expected <- data.frame(Phage = c('CHAP1', 'HAM53', 'NEA2'),
+                          Expected.Free.Phage = c(((10^6)*0.5*0.01*0.1),
+                                                  ((10^6)*0.5*0.01*0.1),
+                                                  ((10^5)*0.5*0.01*0.1)
+))
+
+graph_Phage.Adsorptions_Plaque.Counts <- ggplot(df) + geom_point(aes(x=Phage, y = Count.1, colour = E.coli.Strain), alpha = 0.3) + geom_point(aes(x=Phage, y = Count.2, colour = E.coli.Strain), alpha = 0.3) + geom_point(aes(x=Phage, y = Count.3, colour = E.coli.Strain), alpha = 0.3) + geom_point(aes(x=Phage, y = Medians, colour = E.coli.Strain), shape = 3, size = 3) + geom_text(data = df_expected, aes(x=Phage, y = Expected.Free.Phage, label = 'E'), size = 3) + theme_bw() + ylab('Free phage remaining in lysate')
+```
+
+# Graph of free phage relative to MEDIA controls
+```{r}
+df <- df %>% group_by(Phage)
+split_df <- group_split(df)
+
+df <- data.frame()
+
+for (i in 1:length(split_df[])){
+
+  df_Phage <- split_df[[i]]
+  
+  MEDIA_average <- df_Phage[which(df_Phage$E.coli.Strain == 'MEDIA'), 'Mean']
+  df_Phage$Proportional <- df_Phage$Mean/as.integer(MEDIA_average)
+  df_Phage <- subset(df_Phage, E.coli.Strain != 'MEDIA')
+
+  df <- rbind(df, df_Phage)
+}
+
+graph_Phage.Adsorptions_Proportional.to.MEDIA <- ggplot(df) + geom_point(aes(x = E.coli.Strain, y = Proportional, colour = Phage), shape = 4, size = 3) + geom_text_repel(aes(x = E.coli.Strain, y = Proportional, colour = Phage, label = Phage), size = 3, ) + geom_hline(yintercept = 1) + theme_bw() + theme(legend.position = "none") + ylab('Free phage in lysate relative to MEDIA control')
+```
+# Join figures
+```{r}
+graphs_adsorptions <- ggarrange(graph_Phage.Adsorptions_Plaque.Counts, 
+          graph_Phage.Adsorptions_Proportional.to.MEDIA,
+          labels = c("i", "ii"))
+
+print(graphs_adsorptions)
+
+#ggsave('Figure.1_Initial.Adsorption.Assays_14.2.24.jpg', graphs_adsorptions)
+```
+
+
+```{r}
+Biolog_df <- read.csv('/home/daniel/OHMD/Year_1/Rotation_1_Gally/data/Biolog_results.tsv', sep = '\t', header = F)
+
+Biolog_df <- as.data.frame(t(Biolog_df))
+Biolog_df[1,1] <- 'E.coli.Strain'
+
+names(Biolog_df) <- Biolog_df[1,]
+Biolog_df <- Biolog_df[-1,]
+
+for (i in 2:4){
+  Biolog_df[,i] <- as.integer(Biolog_df[,i])
+}
+
+Biolog_df$Score.CHAP1 <- 100*Biolog_df$`AUC CHAP1`/Biolog_df$`AUC No Phage`
+Biolog_df$Score.eCHAP1 <- 100*Biolog_df$`AUC eCHAp1`/Biolog_df$`AUC No Phage`
+
+Biolog_df$diff <- Biolog_df$Score.CHAP1 - Biolog_df$Score.eCHAP1
+Biolog_df$perc.gain <- -100*Biolog_df$diff/Biolog_df$Score.CHAP1
+
+Biolog_subset <- subset(Biolog_df, abs(diff) > 10)
+Biolog_subset <- Biolog_subset[c('E.coli.Strain','Score.CHAP1', 'Score.eCHAP1')]
+Biolog_subset <- melt(Biolog_subset, id = 'E.coli.Strain')
+ggplot(Biolog_subset) + geom_col(aes(x = variable, y = value)) + facet_wrap(~E.coli.Strain, ncol = 7)
+
+Biolog_subset_gain <- subset(Biolog_df, diff > 0)
+Biolog_subset_gain <- Biolog_subset_gain[c('E.coli.Strain','Score.CHAP1', 'Score.eCHAP1')]
+Biolog_subset_gain <- melt(Biolog_subset_gain, id = 'E.coli.Strain')
+ggplot(Biolog_subset_gain) + geom_col(aes(x = variable, y = value)) + facet_wrap(~E.coli.Strain)
+
+Biolog_subset_loss <- subset(Biolog_df, diff < 0)
+Biolog_subset_loss <- Biolog_subset_loss[c('E.coli.Strain','Score.CHAP1', 'Score.eCHAP1')]
+Biolog_subset_loss <- melt(Biolog_subset_loss, id = 'E.coli.Strain')
+ggplot(Biolog_subset_loss) + geom_col(aes(x = variable, y = value)) + facet_wrap(~E.coli.Strain)
+```
+```{r}
+plot_CH1.interaction.LB.Biolog <- ggplot(Biolog_df) + geom_abline(intercept = 0, slope = 1, colour = 'green') + geom_text(aes(x = Score.CHAP1, y = Score.eCHAP1, label = E.coli.Strain), size = 3) 
+
+#ggsave('Figure.4_CH1.interaction.LB.Biolog.jpg', plot_CH1.interaction.LB.Biolog)
+```
+
+```{r}
+df <- Biolog_df %>% arrange(perc.gain)
+
+ggplot(df) + geom_col(aes(x = reorder(E.coli.Strain, perc.gain), y = perc.gain)) + theme(axis.text.x = element_text(angle=90, hjust=1))
+```
+
+```{r}
+df_Serotype <- read.csv('/home/daniel/OHMD/Year_1/Rotation_1_Gally/RawDATA/Gally.Lab_Serotype.Prediction.tsv', sep = '\t', header = TRUE)
+df_CHAP1.interactions <- Biolog_df
+
+df_Serotype$Name <- gsub("CAN0","CAN", df_Serotype$Name)
+df_Serotype$Name <- gsub("HB0","HB", df_Serotype$Name)
+df_Serotype$Name <- gsub("HU0","HU", df_Serotype$Name)
+
+df <- df_Serotype[which(df_Serotype$Name %in% intersect(df_Serotype$Name, df_CHAP1.interactions$E.coli.Strain)),]
+df <- df[,c('Name','O.Antigen')]
+df$interaction <- 0
+
+names(df)[1] <- 'E.coli.Strain'
+
+df <- merge(df, df_CHAP1.interactions, by = 'E.coli.Strain', all = F)
+
+ggplot(df) + geom_text(aes(x = O.Antigen, y = Score.eCHAP1, label = E.coli.Strain), colour = 'green') + geom_text(aes(x = O.Antigen, y = Score.CHAP1, label = E.coli.Strain))
+
+plot_CH1.interaction.by.O.Antigen <- ggplot(ebz) + geom_histogram(aes(x = CHAP1)) + geom_vline(xintercept = 50, colour = 'green') + facet_wrap(~O.Antigen) + labs(title = 'Ancestral CHAP1 interaction scores in AU by O-Antigen') +xlab('Interaction Score')
+
+#ggsave('Figure.6_CH1.interaction.by.O.Antigen.jpg', plot_CH1.interaction.by.O.Antigen)
+```
+
+```{r}
+homologous_OmpA <- c('CAN217', 'CAN230', 'CAN85', 'HU93', 'CAN41', 'CAN37', 'CAN197', 'CAN07', 'HU19', 'HU36', 'HU33', 'HU30', 'CAN14', 'CAN99', 'CAN21')
+
+intersect(Biolog_df$E.coli.Strain, homologous_OmpA)
+
+Biolog_df$E.coli.Strain
+
+homologous_OmpA <- c("CAN167", "HU36", "CAN85", "ZAP198", "ZAP1589 (PT8)", "ZAP1599", "ZAP1465", "Sakai", "ZAP1163 (EDL)", "ZAP2617")
+
+
+df <- subset(Biolog_df, E.coli.Strain %in% homologous_OmpA) %>% arrange(perc.gain)
+
+ggplot(df) + geom_col(aes(x = reorder(E.coli.Strain, perc.gain), y = perc.gain)) + theme(axis.text.x = element_text(angle=90, hjust=1)) + xlab('E.coli Strain') + ylab('Percentage change in interaction score')
+
+# Supplementary Figure 2
+ggplot(df) + geom_point(aes(y = E.coli.Strain, x = Score.eCHAP1), colour = 'green') + geom_point(aes(y = E.coli.Strain, x = Score.CHAP1)) + xlab('Interaction score')
+
+
+```
+
